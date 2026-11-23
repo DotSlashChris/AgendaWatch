@@ -1,0 +1,13 @@
+.venv
+.env
+cache
+data
+state
+outbox
+backups
+cloudflared
+cloudflare/node_modules
+**/__pycache__
+*.log
+*.bak*
+tests

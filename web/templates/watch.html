@@ -1,0 +1,110 @@
+{% extends "base.html" %}{% block title %}My watch · Agenda Watch{% endblock %}{% block content %}
+<h1>My watch</h1>
+<p style="color:#5b6475">Signed in as {{ user }}
+{% if paid %}<span class="ok" style="display:inline;padding:.15rem .45rem;margin-left:.4rem;font-size:.85rem">Paid · {{ product_name }}</span>
+{% else %}<span style="margin-left:.4rem;font-size:.85rem;color:#5b6475">Free plan</span>{% endif %}
+</p>
+{% if notice %}<p class="ok" id="billing-notice">{{ notice }}</p>{% endif %}
+{% if saved %}<p class="ok">Saved.</p>{% endif %}
+{% if errors %}<div class="err page-errors" role="alert">{% for e in errors %}<div>{{ e }}</div>{% endfor %}</div>{% endif %}
+
+<form method="post" action="/watch" class="card">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<input type="hidden" name="cities_submitted" value="1">
+<h2 style="margin-top:0">Cities to watch</h2>
+{% if admin_plan %}<p class="note" id="plan-hint">Admin account: <strong>all {{ allowed }} cities</strong>, each with its own street, free. A street only matches agendas for its own city.</p>
+{% else %}<p class="note" id="plan-hint">Your plan allows <strong>{{ allowed }} cit{{ 'y' if allowed == 1 else 'ies' }}</strong>. Change it on <a href="/billing">Billing</a>.
+{% if paid %}A street only matches agendas for its own city.{% else %}Free plan: one city and one optional street on that city. Other cities stay disabled. Extra cities: {{ price_label }}.{% endif %}</p>{% endif %}
+{% if lock_date and locks and 'locked' in locks.values() %}<p id="lock-status" style="margin:.4rem 0"><strong>Your cities are locked until {{ lock_date }}.</strong></p>{% endif %}
+
+{% for metro, mcities in metro_groups %}
+<h3 class="metro" style="font-size:.85rem;text-transform:uppercase;letter-spacing:.04em;color:#5b6475;margin:1rem 0 .25rem">{{ metro }}</h3>
+{% for c in mcities %}{% set wc = w.cities[c.key] %}
+<div class="city-row" style="border:1px solid #d8dee8;border-radius:8px;padding:.6rem 1rem;margin:.45rem 0">
+{% set lk = locks.get(c.key) if locks else none %}
+<label class="row" style="margin:0"><input type="checkbox" name="city_{{ c.key }}" id="city_{{ c.key }}" value="1" {% if wc.enabled %}checked{% endif %} data-city="{{ c.key }}"{% if lk %} data-lock="{{ lk }}"{% endif %}{% if lk == 'blocked' %} disabled{% endif %}> {{ c.name }}{% if lk == 'locked' %} <span class="lock-tag" style="font-size:.8rem;color:#5b6475">🔒 locked</span>{% endif %}</label>
+<label for="street_{{ c.key }}" style="display:block;margin:.45rem 0 .2rem;font-size:.9rem;color:#5b6475">Street to watch</label>
+<input type="text" name="street_{{ c.key }}" id="street_{{ c.key }}" value="{{ wc.street or '' }}" placeholder="Optional street in {{ c.name }}" maxlength="200" autocomplete="off" data-street-for="{{ c.key }}">
+{% if not wc.enabled and wc.street %}<p class="note" style="margin:.3rem 0 0;font-size:.85rem">Saved street kept — turn {{ c.name }} on to use it again.</p>{% endif %}
+</div>
+{% endfor %}
+{% endfor %}
+
+<h2>Keywords</h2>
+<p style="font-size:.9rem;color:#5b6475;margin-top:0">One per line or comma-separated. Defaults: {{ defaults | join(", ") }}. Keywords still match across every city you watch.</p>
+<p class="note" style="margin-top:.5rem"><strong>How matches work:</strong> Strong terms alert on their own — short-term rental, STR, rental license, transient tax. Weak terms (zoning, conditional use, business license, occupancy) match <strong>only when a rental term is in the same agenda item</strong>. Zoning and conditional use are <strong>not alerts by themselves</strong>. Adding a street also alerts you when an agenda item names that street (a street only matches in its own city's agendas). City-wide rental items are always included.</p>
+<input type="hidden" name="keywords_submitted" value="1">
+<textarea name="keywords" id="keywords" rows="8">{{ w.keywords }}</textarea>
+<p style="margin:.45rem 0 0"><button type="button" class="btn" id="resetKw" style="background:#3d4a5c">Reset to defaults</button>
+<span class="note" style="display:inline;margin-left:.5rem;padding:.25rem .5rem">Fills the field with product defaults. Click Save to keep them.</span></p>
+
+<h2>Alerts</h2>
+<input type="hidden" name="alerts_submitted" value="1">
+<label class="row"><input type="checkbox" name="alerts_on" value="1" {% if w.alerts_on %}checked{% endif %}> Email me when an upcoming agenda matches</label>
+<p style="font-size:.88rem;color:#5b6475">Past meetings are shown as examples only, never sent as alerts. Alerts go to the email you sign in with.</p>
+<div id="save-err" class="err" role="alert" style="display:none"></div>
+<p><button class="btn" id="savebtn" type="submit">Save</button>
+{% if lock_date and save_locks %}<span id="lock-save" style="margin-left:.6rem;font-size:.92rem;color:#3d4a5c">Saving locks your selected cities until {{ lock_date }}.</span>{% endif %}</p>
+</form>
+
+<div class="card" id="history"><h2 style="margin-top:0">Alerts sent</h2>
+{% if history %}
+<table><tr><th>Date</th><th>City</th><th>Item</th><th>Link</th></tr>
+{% for h in history %}<tr><td>{{ h.date }}</td><td>{{ h.city }}</td><td>{{ h.item }}</td><td><a href="{{ h.link }}" rel="noopener">PDF</a></td></tr>{% endfor %}
+</table>
+{% else %}<p>No alerts sent yet. You'll get one when an upcoming agenda matches.</p>{% endif %}
+
+{% if paid %}
+<p style="margin-top:1rem"><a href="/billing">Billing / receipts</a> — receipts are on the Billing page.</p>
+{% endif %}
+
+{% if build_tests %}
+<h3>Setup sample email (owner only)</h3>
+<p style="font-size:.88rem;color:#5b6475">One setup email sent to {{ owner }} on 2026-10-04, before the matcher was tightened. Under current rules none of these would be sent as alerts (past meetings or weak matches).</p>
+<table><tr><th>Sent</th><th>City</th><th>Meeting</th><th>Item</th><th>Link</th></tr>
+{% for h in build_tests %}<tr><td>{{ h.date }}</td><td>{{ h.city }}</td><td>{{ h.meeting }}</td><td>{{ h.item[:160] }}{% if h.item|length > 160 %}…{% endif %}</td><td><a href="{{ h.link }}" rel="noopener">PDF</a></td></tr>{% endfor %}
+</table>{% endif %}
+</div>
+<script>
+const paid={{ 'true' if paid else 'false' }};
+const allowed={{ allowed }};
+const defaultKeywords={{ defaults|tojson }};
+const boxes=[...document.querySelectorAll('input[type=checkbox][data-city]')];
+const streetFor=k=>document.getElementById('street_'+k);
+const saveErr=document.getElementById('save-err');
+const msgZero="Choose at least 1 city to watch.";
+const msgOver={% if paid %}"Your plan allows {{ allowed }} cities. Turn one off{% if allowed < max_cities %}, or add extra cities on the Billing page{% endif %}."{% else %}"The free plan watches one city. Turn the other cities off, or add an extra city on the Billing page ({{ price_label }})."{% endif %};
+
+function syncCityLock(){
+  // Plan limit: once `allowed` cities are on, other cities are disabled. Server enforces it too.
+  const on=boxes.filter(b=>b.checked).length;
+  boxes.forEach(b=>{
+    const st=streetFor(b.dataset.city);
+    // Locked cities stay checked (still posted); downgrade-blocked cities stay off until the unlock date.
+    if(b.dataset.lock==='locked'){ b.checked=true; }
+    b.disabled=b.dataset.lock==='blocked' || (!b.checked && on>=allowed);
+    st.disabled=!b.checked;
+    // Off cities keep their saved street (shown greyed out; not posted, so the server keeps it).
+  });
+  // No messages while toggling: validation only runs when Save is clicked.
+  saveErr.style.display='none';
+}
+document.querySelector('form[action="/watch"]').addEventListener('submit',e=>{
+  const on=boxes.filter(b=>b.checked).length;
+  const msg=on===0?msgZero:(on>allowed?msgOver:'');
+  if(msg){
+    e.preventDefault();
+    // single location: hide any server error box from a previous attempt, show this one near Save
+    document.querySelectorAll('.page-errors').forEach(x=>x.style.display='none');
+    saveErr.textContent=msg; saveErr.style.display='block';
+    saveErr.scrollIntoView({block:'center'});
+  }
+});
+boxes.forEach(b=>b.addEventListener('change',syncCityLock));
+boxes.filter(b=>b.dataset.lock==='locked').forEach(b=>b.addEventListener('click',e=>e.preventDefault()));
+syncCityLock();
+document.getElementById('resetKw').addEventListener('click',()=>{
+  document.getElementById('keywords').value=defaultKeywords.join('\n');
+});
+</script>
+{% endblock %}

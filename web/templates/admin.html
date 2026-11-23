@@ -1,0 +1,157 @@
+{% extends "base.html" %}{% block title %}Admin · Agenda Watch{% endblock %}
+{% block head %}
+body{max-width:1040px}
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:.7rem;margin:0 0 1rem}
+@media (min-width:640px){.stats{grid-template-columns:repeat(4,1fr)}}
+.stat .n{font-size:1.6rem;font-weight:700;line-height:1.1}
+.stat .l{font-size:.85rem;color:var(--muted)}
+section.card{margin:0 0 1.25rem}
+section.card h2{font-size:1.1rem;margin:0 0 .7rem}
+.pill{display:inline-block;font-size:.75rem;font-weight:700;padding:.12rem .5rem;border-radius:4px;text-transform:uppercase;letter-spacing:.03em}
+.o-silence{background:#eef2f9;color:var(--accent)}.o-hit,.o-alerts_sent{background:#e9f7ef;color:#1d6b3a}
+.o-partial{background:var(--warn-bg);color:var(--warn)}.o-failure{background:#fdecec;color:#a12a2a}
+.scroll{overflow-x:auto}
+details summary{cursor:pointer}
+.filters{display:grid;grid-template-columns:1fr;gap:.55rem}
+@media (min-width:640px){.filters{grid-template-columns:repeat(3,1fr)}}
+.filters label{font-size:.85rem;color:var(--muted);display:block}
+.filters select,.filters input[type=date]{width:100%;padding:.5rem;border:1px solid #c5cad3;border-radius:6px;font:inherit;background:#fff}
+.muted{color:var(--muted);font-size:.88rem}
+.snip{font-size:.85rem;color:var(--muted);white-space:pre-wrap;word-break:break-word}
+@media (max-width:639px){
+  table.stack tr:first-child{display:none}
+  table.stack,table.stack tbody,table.stack tr,table.stack td{display:block;width:100%}
+  table.stack tr{border-bottom:1px solid var(--line);padding:.5rem 0}
+  table.stack td{border:none;padding:.15rem 0}
+  table.stack td.inline{display:inline-block;width:auto;margin-right:.6rem}
+  header{flex-wrap:wrap;gap:.3rem}
+  table.stack td[data-l]::before{content:attr(data-l) ": ";color:var(--muted);font-size:.85rem}
+}
+.pager{display:flex;gap:1rem;align-items:center;margin-top:.8rem}
+{% endblock %}
+{% block content %}
+<h1>Admin</h1>
+
+<section class="card"><h2>Stats</h2>
+<div class="stats">
+  <div class="stat"><div class="n">{{ stats.total_users }}</div><div class="l">Total users</div></div>
+  <div class="stat"><div class="n">{{ stats.paid_users }}</div><div class="l">Paid users (extra cities)</div></div>
+  <div class="stat"><div class="n">{{ stats.extra_cities }}</div><div class="l">Paid extra cities</div></div>
+  <div class="stat"><div class="n">{{ stats.alerts_30d }}</div><div class="l">Alerts sent, last 30 days</div></div>
+</div>
+<details><summary>Users per city (city switched on)</summary>
+<div class="scroll"><table><tr><th>City</th><th>Users</th></tr>
+{% for name, n in stats.users_per_city %}<tr><td>{{ name }}</td><td>{{ n }}</td></tr>{% endfor %}
+</table></div></details>
+</section>
+
+<section class="card" id="cost-safety"><h2>Cost and safety</h2>
+{% if cs.saved %}<p class="ok" id="cs-saved">Saved.{% if cs.sync and cs.sync.error %} (The Worker copy did not update: {{ cs.sync.error }}.){% endif %}</p>{% endif %}
+{% if cs.errors %}<div class="err" id="cs-errors">Nothing was saved:<ul>{% for e in cs.errors %}<li>{{ e }}</li>{% endfor %}</ul></div>{% endif %}
+<p id="cs-status">Daily fetch: <strong>{{ 'ON' if cs.vals.fetch_enabled else 'OFF (the 8:21 run does nothing)' }}</strong>
+ · Limit reached today: <strong id="cs-tripped">{% if cs.tripped %}yes: {{ cs.tripped|join(', ') }}{% else %}no{% endif %}</strong>
+ · Last snapshot: <strong id="cs-last-snapshot">{{ cs.last_snapshot_at or 'not recorded yet' }}</strong></p>
+<form method="post" action="/admin/cost-safety" id="cs-form">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<div class="filters">
+  <div><label for="fetch_enabled">Daily fetch (kill switch)</label>
+    <select name="fetch_enabled" id="fetch_enabled"><option value="1"{% if cs.vals.fetch_enabled %} selected{% endif %}>On</option><option value="0"{% if not cs.vals.fetch_enabled %} selected{% endif %}>Off</option></select></div>
+  <div><label for="snapshot_interval_s">Snapshot check interval, seconds (60–3600)</label>
+    <input type="number" name="snapshot_interval_s" id="snapshot_interval_s" min="60" max="3600" step="1" value="{{ cs.vals.snapshot_interval_s }}" style="width:100%;padding:.5rem;border:1px solid #c5cad3;border-radius:6px;font:inherit"></div>
+</div>
+<p class="muted">The database is saved about 30 seconds after the app writes something, right after each daily run, alert send and Stripe webhook, and when the container goes to sleep. The interval is the longest a missed change can wait.</p>
+<div class="scroll"><table class="stack" id="cs-caps">
+<tr><th>Daily limit</th><th>Used today</th><th>Limit</th><th></th></tr>
+{% for c in cs.caps %}<tr>
+<td><label for="{{ c.name }}">{{ c.label }}</label></td>
+<td class="inline" data-l="Used today">{{ c.used if c.used is not none else '—' }}</td>
+<td class="inline"><input type="number" name="{{ c.name }}" id="{{ c.name }}" min="{{ c.min }}" max="{{ c.max }}" step="1" value="{{ c.cap }}" style="width:7rem;padding:.35rem;border:1px solid #c5cad3;border-radius:6px;font:inherit"></td>
+<td class="inline">{% if c.tripped %}<span class="pill o-failure">reached</span>{% endif %}</td>
+</tr>{% endfor %}
+</table></div>
+<p class="muted">Days run on Denver time ({{ cs.today }}). When a limit is reached that work stops until tomorrow and the project inbox gets one notice. Blank fields keep their current values.{% if cs.lock %} Run lock: held by {{ cs.lock.holder }}.{% endif %}</p>
+<button type="submit">Save cost and safety settings</button>
+</form>
+<div id="fb-spam" style="margin-top:1rem"><h3 style="margin:.2rem 0">Feedback form spam filter</h3>
+<p id="fbg-status">Today: <strong>{{ fbg.today.fb_accepted }}</strong> accepted, <strong>{{ fbg.today.fb_dropped }}</strong> dropped as spam{% if fbg.reasons_today %} ({% for r, n in fbg.reasons_today.items() %}{{ r }}: {{ n }}{% if not loop.last %}, {% endif %}{% endfor %}){% endif %},
+ <strong>{{ fbg.today.fb_emailed }}</strong> of {{ fbg.caps.emails }} notice emails sent{% if fbg.today.fb_email_suppressed %} ({{ fbg.today.fb_email_suppressed }} held back){% endif %}.
+ Last 7 days: {{ fbg.week.fb_accepted }} accepted, {{ fbg.week.fb_dropped }} dropped.
+ Limits: {{ fbg.caps.per_ip }} per visitor, {{ fbg.caps.stored }} stored/day. Turnstile: <strong>{{ 'on' if fbg.turnstile else 'off' }}</strong>.</p>
+{% if fbg.recent %}<details><summary>Recent dropped submissions ({{ fbg.recent|length }}, kept 14 days, never emailed)</summary>
+<div class="scroll"><table class="stack"><tr><th>When</th><th>Why</th><th>Start of message</th></tr>
+{% for r in fbg.recent %}<tr><td class="inline">{{ r.at[:16].replace('T',' ') }}</td><td class="inline">{{ r.reason }}</td><td><div class="snip">{{ r.snippet }}</div></td></tr>{% endfor %}
+</table></div></details>{% endif %}</div>
+</section>
+
+<section class="card" id="runs"><h2>Fetch runs</h2>
+{% if not runs %}<p class="muted">No runs logged yet.</p>{% else %}
+<div class="scroll"><table class="stack">
+<tr><th>Started</th><th>Outcome</th><th>Exit</th><th>Notices</th><th>Late</th><th>Details</th></tr>
+{% for r in runs %}<tr>
+<td class="inline"><strong>{{ r.started_at[:16].replace('T',' ') }}</strong></td>
+<td class="inline"><span class="pill o-{{ r.outcome }}">{{ r.outcome_label or r.outcome }}</span></td>
+<td class="inline" data-l="Exit">{{ r.exit_code }}</td><td class="inline" data-l="Notices">{{ r.total_notices }}</td>
+<td class="inline" data-l="Late">{% if r.late_minutes %}{{ r.late_minutes }} min{% else %}on time{% endif %}</td>
+<td><details><summary>{{ r.per_city|length }} cit{{ 'y' if r.per_city|length == 1 else 'ies' }}{% if r.errors %} · errors{% endif %}</summary>
+<table>{% for k, c in r.per_city.items() %}<tr><td>{{ c.city }}</td><td>{{ c.notices }} notices · {{ c.documents }} docs · {{ c.hits }} hits{% if c.fetch == 'failed' %} · <strong>failed</strong>{% endif %}</td></tr>{% endfor %}</table>
+{% if r.errors %}<div class="err snip" style="margin-top:.4rem">{{ r.errors }}</div>{% endif %}
+<p class="muted">Finished {{ (r.finished_at or '')[:19].replace('T',' ') }} · purged {{ r.purged_notices }} notices, {{ r.purged_runs }} runs</p>
+</details></td></tr>{% endfor %}
+</table></div>{% endif %}
+</section>
+
+<section class="card" id="feedback"><h2>Feedback{% if fb.new %} <span class="pill o-partial">{{ fb.new }} new</span>{% endif %}{% if fb.needs_owner %} <span class="pill o-partial">{{ fb.needs_owner }} needs you</span>{% endif %}</h2>
+<form method="get" action="/admin#feedback" class="filters" style="grid-template-columns:1fr auto;align-items:end">
+  <div><label for="fb-cat">Category</label><select id="fb-cat" name="fb_category"><option value="">All categories</option>
+  {% for c in fb_categories %}<option value="{{ c }}" {% if fb_category == c %}selected{% endif %}>{{ c }}</option>{% endfor %}</select></div>
+  <div><button class="btn" type="submit">Filter</button></div>
+</form>
+{% if not fb.rows %}<p class="muted" style="margin-top:.8rem">No feedback{% if fb_category %} in this category{% endif %} yet.</p>{% else %}
+<div class="scroll" style="margin-top:.6rem"><table class="stack">
+<tr><th>Received</th><th>Category</th><th>Message</th><th>Status</th></tr>
+{% for r in fb.rows %}<tr>
+<td class="inline"><strong>{{ r.created_at[:16].replace('T',' ') }}</strong></td>
+<td class="inline">{{ r.category }}{% if r.city %} <span class="muted">· {{ r.city_name }}</span>{% endif %}</td>
+<td><div class="snip" style="color:var(--text)">{{ r.message }}</div>
+<div class="muted">{% if r.user_id %}From: {{ r.user_id }} (signed in{% if r.user_no %}, user #{{ r.user_no }}{% endif %}){% else %}From: not signed in{% endif %}{% if r.email and r.email != r.user_id %} · reply-to {{ r.email }}{% elif not r.email and not r.user_id %} · no email{% endif %}{% if r.link %} · <a href="{{ r.link }}" rel="noopener nofollow" target="_blank">link</a>{% endif %}</div>
+{% if r.reply_text %}<div class="muted" style="margin-top:.35rem">Reply{% if r.replied_at %} {{ r.replied_at[:16].replace('T',' ') }}{% endif %}: {{ r.reply_text }}</div>{% endif %}
+{% if r.owner_note %}<div class="muted">Owner note: {{ r.owner_note }}</div>{% endif %}</td>
+<td class="inline"><span class="pill {% if r.status == 'new' or r.status == 'needs-owner' %}o-partial{% elif r.status == 'replied' %}o-silence{% else %}o-silence{% endif %}">{% if r.status == 'needs-owner' %}Needs you{% else %}{{ r.status }}{% endif %}</span>
+{% if r.status == 'new' or r.status == 'needs-owner' %}<form method="post" action="/admin/feedback/{{ r.id }}/reviewed" style="margin-top:.35rem">
+<input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="fb_category" value="{{ fb_category }}">
+<button class="btn" style="padding:.35rem .7rem;font-size:.85rem" type="submit">Mark reviewed</button></form>{% endif %}</td>
+</tr>{% endfor %}</table></div>{% endif %}
+</section>
+
+<section class="card" id="notices"><h2>Notices</h2>
+<form method="get" action="/admin#notices">
+<div class="filters">
+  <div><label for="f-city">City</label><select id="f-city" name="city"><option value="">All cities</option>
+    {% for k, n in cities %}<option value="{{ k }}" {% if f.city == k %}selected{% endif %}>{{ n }}</option>{% endfor %}</select></div>
+  <div><label for="f-metro">Metro</label><select id="f-metro" name="metro"><option value="">All metros</option>
+    {% for m in metros %}<option value="{{ m }}" {% if f.metro == m %}selected{% endif %}>{{ m }}</option>{% endfor %}</select></div>
+  <div><label for="f-q">Text</label><input id="f-q" type="text" name="q" value="{{ f.q }}" placeholder="e.g. rental license"></div>
+  <div><label for="f-from">Meeting from</label><input id="f-from" type="date" name="date_from" value="{{ f.date_from }}"></div>
+  <div><label for="f-to">Meeting to</label><input id="f-to" type="date" name="date_to" value="{{ f.date_to }}"></div>
+  <div><label>&nbsp;</label><label class="row" style="color:var(--text)"><input type="checkbox" name="matched" value="1" {% if f.matched %}checked{% endif %}> Matched only</label></div>
+</div>
+<p style="margin:.7rem 0 0"><button class="btn" type="submit">Search</button> <a href="/admin#notices" style="margin-left:.6rem">Clear</a></p>
+</form>
+<p class="muted" style="margin:.9rem 0 .4rem">{{ res.total }} notice{{ '' if res.total == 1 else 's' }}{% if res.pages > 1 %} · page {{ res.page }} of {{ res.pages }}{% endif %}</p>
+<div class="scroll"><table class="stack">
+<tr><th>Meeting</th><th>City</th><th>Notice</th><th>Match</th></tr>
+{% for n in res.rows %}<tr>
+<td class="inline" style="white-space:nowrap"><strong>{{ (n.meeting_date or '')[:10] }}</strong></td>
+<td class="inline">{{ n.city_name }} <span class="muted">· {{ n.metro }}</span></td>
+<td><a href="{{ n.notice_url }}" rel="noopener" target="_blank">{{ n.title or n.body }}</a>
+<div class="muted">{{ n.body }}{% for u in n.pdf_urls[:3] %} · <a href="{{ u }}" rel="noopener" target="_blank">PDF {{ loop.index }}</a>{% endfor %}{% if n.pdf_urls|length > 3 %} · +{{ n.pdf_urls|length - 3 }}{% endif %}</div>
+{% if n.snippet %}<div class="snip">{{ n.snippet }}</div>{% endif %}</td>
+<td class="inline">{% if n.matched %}<span class="pill o-hit">match</span><div class="muted">{{ n.matched_terms }}</div>{% else %}<span class="muted">—</span>{% endif %}</td>
+</tr>{% else %}<tr><td colspan="4" class="muted">No notices match these filters.</td></tr>{% endfor %}
+</table></div>
+{% if res.pages > 1 %}<div class="pager">
+{% if res.page > 1 %}<a href="/admin?{{ qs }}{{ '&' if qs }}page={{ res.page - 1 }}#notices">← Newer</a>{% endif %}
+{% if res.page < res.pages %}<a href="/admin?{{ qs }}{{ '&' if qs }}page={{ res.page + 1 }}#notices">Older →</a>{% endif %}
+</div>{% endif %}
+</section>
+{% endblock %}

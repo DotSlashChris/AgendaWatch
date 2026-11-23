@@ -1,0 +1,37 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "agenda-watch",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-12",
+  "observability": { "enabled": true },
+  // workers.dev off: only reachable via agendawatch.app
+  "workers_dev": false,
+  "containers": [
+    {
+      "class_name": "AgendaWatchContainer",
+      "image": "./Dockerfile",
+      "image_build_context": "..",
+      "instance_type": "basic",   // 1/4 vCPU, 1 GiB, 4 GB disk
+      "max_instances": 1
+    }
+  ],
+  "durable_objects": {
+    "bindings": [{ "name": "AW_CONTAINER", "class_name": "AgendaWatchContainer" }]
+  },
+  "exports": {
+    "AgendaWatchContainer": { "type": "durable-object", "storage": "sqlite" }
+  },
+  // Free path: send only to verified Email Routing destination address(es)
+  "send_email": [{ "name": "EMAIL", "allowed_destination_addresses": ["inbox@example.invalid"] }],
+  "triggers": { "crons": ["21 14 * * *", "21 15 * * *"] },
+  "vars": {
+    "AW_BASE_URL": "https://agendawatch.app",
+    "MAIL_FROM": "alerts@agendawatch.app"
+  }
+  // secrets (wrangler secret put, stdin only): AW_INTERNAL_SECRET, RESEND_API_KEY,
+  // STRIPE_SECRET_KEY (sk_live_/rk_live_), STRIPE_PUBLISHABLE_KEY (pk_live_),
+  // STRIPE_WEBHOOK_SECRET (live whsec), AW_OWNER_EMAIL, AW_ADMIN_EMAILS (comma-separated),
+  // NOTIFY_TO (verified Email Routing destination). STRIPE_PORTAL_CONFIG_ID is legacy/ignored.
+  // send_email.allowed_destination_addresses must be that same verified destination; replace
+  // the placeholder before a live deploy. Do not commit a personal inbox address.
+}

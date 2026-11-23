@@ -1,0 +1,4 @@
+#!/bin/sh
+# local build helper: dockerd runs without a bridge here, so image builds use the host network
+if [ "$1" = "build" ]; then shift; exec /usr/local/bin/docker build --network=host "$@"; fi
+exec /usr/local/bin/docker "$@"

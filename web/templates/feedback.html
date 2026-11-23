@@ -1,0 +1,37 @@
+{% extends "base.html" %}{% block title %}Feedback · Agenda Watch{% endblock %}
+{% block head %}
+.fb label{display:block;font-weight:600;font-size:.93rem;margin:.9rem 0 .3rem}
+.fb label .opt{font-weight:400;color:var(--muted)}
+.fb select{width:100%;padding:.55rem .65rem;border:1px solid #c5cad3;border-radius:6px;font:inherit;background:#fff}
+.fb textarea{min-height:9rem}
+.hp{position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden}
+.hint{font-size:.85rem;color:var(--muted);margin:.25rem 0 0}
+{% endblock %}
+{% block content %}
+<h1>Feedback</h1>
+<p>Tell us about an alert that missed the mark, a meeting we should have caught, a source worth watching, or anything that broke. We read every message.</p>
+{% if error %}<p class="err">{{ error }}</p>{% endif %}
+<form method="post" action="/feedback" class="card fb">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<input type="hidden" name="ft" value="{{ ft }}">
+<label for="fb-category">What is this about?</label>
+<select id="fb-category" name="category" required>
+  <option value="">Choose one…</option>
+  {% for c in categories %}<option value="{{ c }}" {% if form.category == c %}selected{% endif %}>{{ c }}</option>{% endfor %}
+</select>
+<label for="fb-message">Message</label>
+<textarea id="fb-message" name="message" required maxlength="{{ max_len }}" placeholder="What happened, and what did you expect?">{{ form.message or '' }}</textarea>
+<p class="hint">Up to {{ max_len }} characters.</p>
+<label for="fb-city">City <span class="opt">(optional)</span></label>
+<select id="fb-city" name="city"><option value="">Not about one city</option>
+  {% for k, n in cities %}<option value="{{ k }}" {% if form.city == k %}selected{% endif %}>{{ n }}</option>{% endfor %}
+</select>
+<label for="fb-link">Link to the alert or notice <span class="opt">(optional)</span></label>
+<input id="fb-link" type="text" name="link" value="{{ form.link or '' }}" inputmode="url" placeholder="https://…">
+<p class="muted" style="margin:.8rem 0 0">Signed in as <strong>{{ fb_account }}</strong>. We'll reply to this address.</p>
+<div class="hp" aria-hidden="true"><label for="fb-website">Website</label><input id="fb-website" type="text" name="website" tabindex="-1" autocomplete="off"></div>
+{% if turnstile_site_key %}<div class="cf-turnstile" data-sitekey="{{ turnstile_site_key }}" style="margin-top:1rem"></div>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>{% endif %}
+<p style="margin-top:1.1rem"><button class="btn" type="submit">Send feedback</button></p>
+</form>
+{% endblock %}

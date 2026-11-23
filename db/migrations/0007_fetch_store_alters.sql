@@ -1,0 +1,5 @@
+-- aw_store.ensure_schema ALTERs.
+ALTER TABLE notices ADD COLUMN fingerprint TEXT NOT NULL DEFAULT '';
+ALTER TABLE fetch_runs ADD COLUMN alert_emails INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE fetch_runs ADD COLUMN alert_items INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE fetch_runs ADD COLUMN alert_hits INTEGER NOT NULL DEFAULT 0;

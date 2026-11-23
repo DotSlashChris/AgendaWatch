@@ -1,0 +1,28 @@
+{% extends "base.html" %}{% block title %}Checkout complete · Agenda Watch{% endblock %}{% block content %}
+{% set extra = receipt.extra_cities if receipt and receipt.extra_cities else none %}
+<h1>Checkout {{ 'complete' if verified else 'received' }}</h1>
+{% if err %}<div class="err">{{ err }}</div>{% endif %}
+{% if verified %}
+<p class="ok" id="checkout-ok">Payment confirmed.{% if extra %} You now have <strong>{{ extra }} extra cit{{ 'y' if extra == 1 else 'ies' }} · up to {{ [1 + extra, 10]|min }} cities</strong>. Each city includes its own street.{% else %} Your extra cities are active. Each city includes its own street.{% endif %}</p>
+{% elif session_id %}
+<p class="note">We received your checkout. Your plan may take a moment to update — reload <a href="/billing">Billing</a> to see it.</p>
+{% else %}
+<p class="err">We couldn't find this checkout. Start again from <a href="/billing">Billing</a>.</p>
+{% endif %}
+{% if receipt %}
+<div class="card" id="checkout-summary">
+<h2 style="margin-top:0">Summary</h2>
+<ul class="tight">
+<li>Payment: {{ receipt.payment_status or "—" }}</li>
+{% if receipt.subscription_status %}<li>Subscription: {{ receipt.subscription_status }}</li>{% endif %}
+{% if extra %}<li>Extra cities: {{ extra }}</li>
+<li>Cities allowed: up to {{ [1 + extra, 10]|min }} (1 free + {{ extra }} extra)</li>{% endif %}
+<li>Price: $5/month per extra city{% if extra %} · {{ extra }} × $5/month{% endif %}</li>
+</ul>
+<p>Receipts, your card, changing the number of extra cities, or canceling: use <strong>Manage billing</strong> on the <a href="/billing">Billing</a> page. Adding a city later charges the prorated amount for the rest of that month right away. Canceling or lowering the number takes effect at the end of the month you've paid for.</p>
+</div>
+{% endif %}
+<p><a class="btn" href="/billing">Back to Billing</a>
+<a class="btn" href="/watch" style="background:#3d4a5c;margin-left:.5rem">My watch</a></p>
+{% if verified %}<p style="font-size:.92rem;color:#5b6475">Go to My watch to turn on your new cities and add a street for each.</p>{% endif %}
+{% endblock %}

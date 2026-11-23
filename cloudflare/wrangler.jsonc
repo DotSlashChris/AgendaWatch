@@ -1,0 +1,51 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "agenda-watch",
+  "main": "src/index.ts",
+  // Regenerate src/catalog.gen.ts (catalog city slugs for /cities/<slug> + sitemap.xml) from config.json on every deploy
+  "build": { "command": "python3 ../tools/gen_worker_catalog.py" },
+  "compatibility_date": "2026-10-12",
+  "observability": { "enabled": true },
+  // Cost guardrails (2026-10-21): per-invocation CPU cap (normal requests use a few ms; snapshot PUT/GET well
+  // under 1 s) and subrequest cap (a 90 MB snapshot = ~91 DO RPCs). Container count stays at max_instances 1.
+  "limits": { "cpu_ms": 10000, "subrequests": 200 },
+  // Per-IP limit for requests that can reach the container (cached home, 404s and the Stripe webhook are exempt)
+  "ratelimits": [{ "name": "AW_RL", "namespace_id": "4821", "simple": { "limit": 60, "period": 60 } }],
+  // Worker version id: the stored anonymous home page is refreshed on every deploy
+  "version_metadata": { "binding": "CF_VERSION_METADATA" },
+  // workers.dev off: only reachable via agendawatch.app
+  "workers_dev": false,
+  "routes": [
+    { "pattern": "agendawatch.app", "custom_domain": true },
+    { "pattern": "www.agendawatch.app", "custom_domain": true }
+  ],
+  "containers": [
+    {
+      "class_name": "AgendaWatchContainer",
+      "image": "./Dockerfile",
+      "image_build_context": "..",
+      "instance_type": "basic",   // 1/4 vCPU, 1 GiB, 4 GB disk
+      "max_instances": 1
+    }
+  ],
+  "durable_objects": {
+    "bindings": [{ "name": "AW_CONTAINER", "class_name": "AgendaWatchContainer" }]
+  },
+  "exports": {
+    "AgendaWatchContainer": { "type": "durable-object", "storage": "sqlite" }
+  },
+  // Free path: send only to verified Email Routing destination address(es)
+  "send_email": [{ "name": "EMAIL", "allowed_destination_addresses": ["inbox@example.invalid"] }],
+  "triggers": { "crons": ["21 14 * * *", "21 15 * * *"] },
+  "vars": {
+    "AW_BASE_URL": "https://agendawatch.app",
+    "MAIL_FROM": "alerts@agendawatch.app",
+    "TURNSTILE_SITE_KEY": "0x4AAAAAAFip4jFN-G4SkwrT"   // public Turnstile site key (feedback form); secret = wrangler secret TURNSTILE_SECRET
+  }
+  // secrets (wrangler secret put, stdin only): AW_INTERNAL_SECRET, TURNSTILE_SECRET,
+  // RESEND_API_KEY, STRIPE_SECRET_KEY (sk_live_/rk_live_), STRIPE_PUBLISHABLE_KEY (pk_live_),
+  // STRIPE_WEBHOOK_SECRET (live whsec), AW_OWNER_EMAIL, AW_ADMIN_EMAILS (comma-separated),
+  // NOTIFY_TO (verified Email Routing destination). STRIPE_PORTAL_CONFIG_ID is legacy/ignored.
+  // send_email.allowed_destination_addresses must be that same verified destination; replace
+  // the placeholder before a live deploy. Do not commit a personal inbox address.
+}

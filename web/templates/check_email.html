@@ -1,0 +1,13 @@
+{% extends "base.html" %}{% block title %}Check your inbox · Agenda Watch{% endblock %}{% block content %}
+<h1>Check your inbox</h1>
+{% if provider != 'resend' or status.startswith('sent') %}<p>A link is on its way to <strong>{{ email }}</strong>. The link signs you in, or sets up your free account if you're new. It works once and expires in 15 minutes.</p>{% endif %}
+{% if provider != 'resend' %}
+<div class="note"><strong>Build preview:</strong>
+{% if is_owner %}This is the owner address, the only one allowed to get email during the build. {% if status.startswith('sent') %}The link was emailed to it.{% else %}No mail transport is set up yet ({{ status }}), so no email went out. {% endif %}The link is also in the server log and <code>outbox/magic/</code>.
+{% else %}During the build, email goes only to the owner, so no email was sent to this address. The sign-in link is in the server log and <code>outbox/magic/</code>.{% endif %}
+</div>
+{% elif not status.startswith('sent') %}
+<p class="err">We couldn't send the email right now. Please try again in a few minutes.</p>
+{% endif %}
+<p><a href="/signin">Use a different email</a></p>
+{% endblock %}

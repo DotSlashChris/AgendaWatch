@@ -1,0 +1,241 @@
+{
+  "pmn_base": "https://www.utah.gov",
+  "government_type_id_municipality": 3,
+  "lookback_days": 60,
+  "lookahead_days": 90,
+  "max_items_per_email": 5,
+  "alerts_off_cities": [],
+  "_alerts_off_cities": "Per-user alerts are never emailed for these city keys until the owner removes them. New cities start here and are removed only after a first scan shows no Provo-style flood (2026-10-21: South Jordan, Midvale, Farmington, Vineyard, Daniel scanned, no flood, alerts on; 2026-10-25: West Jordan 0 hits, Layton 1 past ADU amendment only, alerts on by owner). 2026-11-03: Park City and St. George added alerts-off; first scan (dry, no email) showed no flood (Park City 1 upcoming hit, St. George 2 upcoming hits on one Nov 5 STR item), alerts on.",
+  "states": {
+    "Utah": {
+      "metros": {
+        "Salt Lake metro": {
+          "cities": {
+            "ch": {
+              "name": "Cottonwood Heights",
+              "pmn_entity_name": "Cottonwood Heights",
+              "public_bodies": [
+                "City Council",
+                "Planning Commission",
+                "Board of Adjustments",
+                "Administrative Hearings",
+                "Architectural Review Commission",
+                "Appeals Hearing Officer"
+              ]
+            },
+            "slc": {
+              "name": "Salt Lake City",
+              "pmn_entity_name": "Salt Lake City",
+              "public_bodies": [
+                "Salt Lake City Council",
+                "Planning Commission",
+                "Historic Landmark Commission",
+                "Planning Division Administrative Hearings",
+                "Housing Advisory and Appeals Board",
+                "Business Advisory Board",
+                "Board of Appeals and Examiners",
+                "Appeals Hearing Officer"
+              ]
+            },
+            "sandy": {
+              "name": "Sandy",
+              "pmn_entity_name": "Sandy",
+              "public_bodies": [
+                "City Council",
+                "Planning Commission",
+                "Board of Adjustments",
+                "Community Development Department Administrative Hearing",
+                "Architectural Review Committee"
+              ]
+            },
+            "draper": {
+              "name": "Draper",
+              "pmn_entity_name": "Draper",
+              "public_bodies": [
+                "City Council",
+                "Planning Commission",
+                "Board of Adjustments",
+                "Administrative Hearings",
+                "Historic Preservation Commission",
+                "Zoning Administrator"
+              ]
+            },
+            "wj": {
+              "name": "West Jordan",
+              "pmn_entity_name": "West Jordan",
+              "public_bodies": [
+                "City Council",
+                "Planning Commission",
+                "Board of Adjustment",
+                "Land Use Appeal Authority",
+                "Zoning Administrator"
+              ]
+            },
+            "murray": {
+              "name": "Murray",
+              "pmn_entity_name": "Murray",
+              "public_bodies": [
+                "Municipal Council",
+                "Planning and Zoning Commission",
+                "Hearing Officer Public Meeting",
+                "City Center Form Based Code ARC",
+                "Murray City Center District (MCCD) Design Review Committee"
+              ]
+            },
+            "sj": {
+              "name": "South Jordan",
+              "pmn_entity_name": "South Jordan",
+              "public_bodies": [
+                "City Council",
+                "Planning Commission",
+                "Board Of Adjustments",
+                "VARIANCE AND APPEAL HEARINGS",
+                "ARCHITECTURAL REVIEW COMMITTEE"
+              ]
+            },
+            "midvale": {
+              "name": "Midvale",
+              "pmn_entity_name": "Midvale",
+              "public_bodies": [
+                "City Council",
+                "Planning Commission (Midvale)",
+                "Board of Adjustments",
+                "Appeal Authority"
+              ]
+            }
+          }
+        },
+        "Ogden-Clearfield metro": {
+          "cities": {
+            "ogden": {
+              "name": "Ogden",
+              "pmn_entity_name": "Ogden",
+              "public_bodies": [
+                "City Council, Redevelopment Agency, Municipal Building Authority",
+                "City Council",
+                "Planning Commission",
+                "Board of Zoning Adjustment",
+                "Landmarks Commission"
+              ]
+            },
+            "layton": {
+              "name": "Layton",
+              "pmn_entity_name": "Layton",
+              "public_bodies": [
+                "City Council",
+                "Planning Commission",
+                "Board of Adjustment",
+                "Appeal Board"
+              ]
+            },
+            "farmington": {
+              "name": "Farmington",
+              "pmn_entity_name": "Farmington",
+              "public_bodies": [
+                "Farmington City Council",
+                "Farmington City Planning Commission",
+                "Farmington City Board of Adjustment",
+                "Historic Preservation Commission"
+              ]
+            }
+          }
+        },
+        "Provo-Orem metro": {
+          "cities": {
+            "provo": {
+              "name": "Provo",
+              "pmn_entity_name": "Provo",
+              "public_bodies": [
+                "Provo Municipal Council",
+                "Provo City Planning Commission",
+                "Planning Commission Administrative Hearing",
+                "Provo City Board of Adjustment",
+                "Provo City Landmarks Commission",
+                "Provo City Design Review Committee"
+              ]
+            },
+            "orem": {
+              "name": "Orem",
+              "pmn_entity_name": "Orem",
+              "public_bodies": [
+                "City Council",
+                "Planning Commission",
+                "Board of Adjustments",
+                "Development Review Committe",
+                "Historical Preservation Advisory Commission"
+              ]
+            },
+            "vineyard": {
+              "name": "Vineyard",
+              "pmn_entity_name": "Vineyard",
+              "public_bodies": [
+                "City Council",
+                "Planning Commission",
+                "Development Review Committee",
+                "Administrative Law Judge/Hearing Officer",
+                "Public Notices"
+              ]
+            }
+          }
+        },
+        "Heber metro": {
+          "cities": {
+            "daniel": {
+              "name": "Daniel",
+              "pmn_entity_name": "Daniel",
+              "public_bodies": [
+                "Town Council",
+                "Planning Commission",
+                "Board of Appeals"
+              ]
+            },
+            "parkcity": {
+              "name": "Park City",
+              "pmn_entity_name": "Park City",
+              "public_bodies": [
+                "City Council",
+                "Planning Commission",
+                "Board of Adjustment",
+                "Administrative Public Hearing",
+                "Historic Preservation Board",
+                "Appeal Hearing"
+              ]
+            }
+          }
+        },
+        "St. George metro": {
+          "cities": {
+            "stgeorge": {
+              "name": "St. George",
+              "pmn_entity_name": "St. George",
+              "public_bodies": [
+                "City Council",
+                "Planning Commission",
+                "Board of Adjustments",
+                "Land Use Authority",
+                "Historic Preservation Commission"
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  "keywords": [
+    "short-term rental",
+    "STR",
+    "rental license",
+    "business license",
+    "zoning",
+    "conditional use",
+    "transient tax",
+    "occupancy"
+  ],
+  "addresses": [],
+  "_addresses_example": [
+    "1234 E Example Ave",
+    "2277 E Bengal Blvd"
+  ],
+  "_product_rules": "Past meetings = labeled example only, never an alert. Free: one city + one optional street on that city, upcoming only. Paid: $5/month per extra city (Stripe test, subscription quantity), street included with each city, never charged per street; allowed cities = 1 + paid extra cities, capped at the ten supported cities. A street matches only in its own city's agendas. Ignore multi-email signups for now.",
+  "_cities_note": "Supported cities: state -> metro -> city (stable city key). Seventeen, all Utah (Daniel = Town of Daniel, Wasatch County, PMN entity 898; Park City = PMN entity 233, Summit County, in the Heber micropolitan area since OMB 2023; St. George = PMN entity 277, Washington County, St. George metro). PMN entity = government type 3 (Municipality); public_bodies are exact PMN body names. The per-user plan cap stays at 10 cities (aw_cities.MAX_CITIES)."
+}

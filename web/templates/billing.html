@@ -1,0 +1,64 @@
+{% extends "base.html" %}{% block title %}Billing · Agenda Watch{% endblock %}{% block content %}
+<h1>Billing</h1>
+<p style="color:#5b6475">Signed in as {{ user }}
+{% if paid %}<span class="ok" style="display:inline;padding:.15rem .45rem;margin-left:.4rem;font-size:.85rem">Paid · {{ product_name }}</span>
+{% else %}<span style="margin-left:.4rem;font-size:.85rem;color:#5b6475">Free plan</span>{% endif %}
+</p>
+{% if notice %}<p class="ok" id="billing-notice">{{ notice }}</p>{% endif %}
+{% if admin_plan %}<p class="ok" id="admin-plan">Admin account: every city ({{ allowed }}) and street is free. No billing needed.</p>{% endif %}
+{% if checkout == 'already' %}<p class="ok">You already have an active subscription.</p>{% endif %}
+{% if errors %}<div class="err">{% for e in errors %}<div>{{ e }}</div>{% endfor %}</div>{% endif %}
+{% if portal_err %}<div class="err">{{ portal_err }}</div>{% endif %}
+
+<div class="card" id="billing" style="border:2px solid #3d4a5c">
+<h2 style="margin-top:0">Plan &amp; billing</h2>
+{% if paid %}
+<p id="plan-line" style="font-size:1.15rem;margin:.25rem 0"><strong>{{ extra_cities }} extra cit{{ 'y' if extra_cities == 1 else 'ies' }} · up to {{ allowed }} cities</strong></p>
+<p id="plan-count" style="margin:.25rem 0">{{ enabled_count }} of {{ allowed }} cities on. {{ price_label }}.{% if renew_date %} Renews on {{ renew_date }}.{% endif %}</p>
+{% if cancel_date %}
+<div class="notice" id="cancel-pending" style="border-left:4px solid #b7791f;background:#fff8e6;padding:.6rem .8rem;margin:.6rem 0">
+<strong>Cancels on {{ cancel_date }}.</strong> Your {{ 'extra city stays' if extra_cities == 1 else extra_cities ~ ' extra cities stay' }} active until then. After that you're back to 1 city; the city you turned on first stays on, and your streets are kept.
+</div>
+{% endif %}
+<form method="post" action="/billing/portal" target="_blank" style="margin:.75rem 0">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<button class="btn" id="manage-billing" type="submit" style="font-size:1.05rem;padding:.6rem 1.2rem">{{ 'Keep my subscription' if cancel_date else 'Manage billing' }}</button>
+</form>
+{% if cancel_date %}
+<p class="note" id="resume-note">Changed your mind? Click <strong>Keep my subscription</strong> to open Manage billing in a new tab, then choose <strong>Renew subscription</strong>. Nothing changes until {{ cancel_date }}.</p>
+{% else %}
+<p class="note">Opens Manage billing in a <strong>new tab</strong>: change the number of extra cities, update your card, see receipts, or cancel. Adding a city charges the prorated amount for the rest of this month now. Canceling or lowering the number of extra cities takes effect at the end of the month you've paid for. When you come back, this page updates by itself (or reload it).</p>
+{% endif %}
+{% elif admin_plan %}
+<p id="plan-line" style="font-size:1.15rem;margin:.25rem 0"><strong>Admin: all {{ allowed }} cities free</strong></p>
+<p id="plan-count" style="margin:.25rem 0">{{ enabled_count }} of {{ allowed }} cities on. Each city includes its own street. No subscription needed.</p>
+{% else %}
+<p id="plan-line" style="font-size:1.15rem;margin:.25rem 0"><strong>Free: 1 city</strong></p>
+<p id="plan-count" style="margin:.25rem 0">{{ enabled_count }} of 1 city on. One optional street on that city, upcoming meetings only.</p>
+<p><strong>{{ product_name }}:</strong> {{ price_label }} — each extra city includes its own street. Up to {{ max_cities }} cities.</p>
+{% if stripe_configured %}
+<form method="post" action="/billing/checkout" style="margin:.5rem 0">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<label for="quantity" style="display:inline;font-size:.95rem">Extra cities</label>
+<input type="number" name="quantity" id="quantity" value="1" min="1" max="{{ max_extra }}" style="width:5rem;display:inline-block;margin:0 .5rem">
+<button class="btn" type="submit">Add extra cities — $5/month each</button>
+</form>
+<p class="note">Secure payment by Stripe. You can change the number of extra cities (1–{{ max_extra }}) on the Checkout page. Cancel anytime from Manage billing; your extra cities stay active through the month you paid for.</p>
+{% else %}
+<p class="err">Online payment is temporarily unavailable. Please try again later.</p>
+{% endif %}
+{% if has_customer and stripe_configured %}
+<form method="post" action="/billing/portal" target="_blank" style="margin:.5rem 0">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<button class="btn" id="manage-billing" type="submit" style="background:#3d4a5c">Manage billing</button>
+</form>
+<p class="note">Past receipts and your card are in the Stripe Customer Portal (opens in a new tab).</p>
+{% endif %}
+{% endif %}
+</div>
+
+{% if paid %}
+<p id="receipts-note" style="margin-top:1rem">Receipts: use <strong>Manage billing</strong> to see and download receipts.</p>
+{% endif %}
+<p style="margin-top:1rem"><a href="/watch">Back to My watch</a> to choose your cities.</p>
+{% endblock %}

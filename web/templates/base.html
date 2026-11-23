@@ -1,0 +1,108 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{% block title %}Agenda Watch{% endblock %}</title>
+{% if canonical %}<link rel="canonical" href="{{ canonical }}">{% endif %}
+<style>
+:root{
+  --bg:#f6f5f2;
+  --text:#14181f;
+  --muted:#5a6170;
+  --line:#e2e0da;
+  --card:#ffffff;
+  --accent:#1a3d7c;
+  --accent-hover:#153266;
+  --warn:#8a6a1a;
+  --warn-bg:#faf6eb;
+  --warn-border:#e0d2a8;
+}
+*{box-sizing:border-box}
+body{
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  max-width:760px;margin:0 auto;padding:1rem 1.1rem 2rem;
+  color:var(--text);line-height:1.55;background:var(--bg);
+}
+header{
+  display:flex;justify-content:space-between;align-items:center;
+  border-bottom:1px solid var(--line);padding:.85rem 0;margin-bottom:1.75rem;
+}
+header a.brand{font-weight:700;font-size:1.05rem;color:var(--text);text-decoration:none;letter-spacing:-.01em}
+nav a,nav button{margin-left:.85rem;font-size:.92rem}
+nav form{display:inline}
+nav button{background:none;border:none;color:var(--accent);cursor:pointer;padding:0;text-decoration:underline;font:inherit}
+a{color:var(--accent)}
+.card{
+  background:var(--card);border:1px solid var(--line);border-radius:10px;
+  padding:1.15rem 1.2rem;margin:0;
+}
+.example{border-left:4px solid var(--warn);background:var(--warn-bg);border-color:var(--warn-border)}
+.tag{
+  display:inline-block;background:var(--warn);color:#fff;font-size:.72rem;font-weight:700;
+  padding:.18rem .55rem;border-radius:4px;text-transform:uppercase;letter-spacing:.04em;
+}
+.note{background:#eef2f9;border:1px solid #c8d4e8;border-radius:6px;padding:.6rem .8rem;font-size:.93rem}
+.err{background:#fdecec;border:1px solid #f3b8b8;border-radius:6px;padding:.6rem .8rem}
+.ok{background:#e9f7ef;border:1px solid #b5e0c4;border-radius:6px;padding:.6rem .8rem}
+.btn{
+  background:var(--accent);color:#fff;border:none;border-radius:8px;
+  padding:.7rem 1.25rem;font-size:1.02rem;font-weight:600;cursor:pointer;
+  text-decoration:none;display:inline-block;line-height:1.2;
+}
+.btn:hover{background:var(--accent-hover);color:#fff}
+input[type=email],input[type=text],textarea{
+  width:100%;padding:.55rem .65rem;border:1px solid #c5cad3;border-radius:6px;font:inherit;background:#fff
+}
+label.row{display:flex;align-items:center;gap:.5rem;margin:.35rem 0}
+table{width:100%;border-collapse:collapse;font-size:.92rem}
+th,td{text-align:left;padding:.45rem;border-bottom:1px solid var(--line);vertical-align:top}
+footer{margin-top:2.75rem;border-top:1px solid var(--line);padding-top:.9rem;font-size:.85rem;color:var(--muted)}
+ul.tight{margin:.4rem 0 0;padding-left:1.15rem}
+ul.tight li{margin:.35rem 0}
+
+/* Landing */
+.hero{margin:0 0 2rem}
+.hero h1{
+  font-size:clamp(1.85rem,5.5vw,2.55rem);font-weight:750;line-height:1.15;
+  letter-spacing:-.02em;margin:0 0 .9rem;max-width:18ch;
+}
+.hero .subline{
+  font-size:1.08rem;color:var(--muted);margin:0 0 1.15rem;
+  max-width:36ch;line-height:1.45;
+}
+.hero .lede{font-size:1rem;color:var(--text);margin:0;max-width:42ch}
+
+.split{
+  display:grid;grid-template-columns:1fr;gap:1rem;margin:0 0 1.5rem;
+}
+@media (min-width:640px){
+  .split{grid-template-columns:1fr 1fr;gap:1.1rem}
+  body{padding:1.25rem 1.35rem 2.5rem}
+}
+.split .card h2{font-size:1.05rem;margin:0 0 .55rem;letter-spacing:-.01em}
+.split .card p,.split .card li{font-size:.95rem;color:var(--text)}
+
+.sample{margin:0 0 1.5rem;padding:1.2rem 1.25rem}
+.sample-labels{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem .75rem;margin-bottom:.85rem}
+.sample-not{font-size:.85rem;font-weight:600;color:var(--warn)}
+.sample h3{margin:0 0 .65rem;font-size:1.05rem;line-height:1.3}
+.sample-meta{margin:0;padding:0;list-style:none}
+.sample-meta li{margin:.35rem 0;font-size:.95rem}
+.sample-meta strong{font-weight:600;color:var(--text)}
+.sample-foot{font-size:.88rem;color:var(--muted);margin:.85rem 0 0}
+
+.price-block{margin:0 0 1rem;padding:1.25rem 1.3rem}
+.price-block h2{margin:0 0 .65rem;font-size:1.1rem}
+.price-block p{margin:0 0 1rem;font-size:.98rem}
+.price-note{font-size:.9rem;color:var(--muted);margin:0 0 .85rem}
+.price-note strong{color:var(--text);font-weight:600}
+.cta-wrap{display:flex;flex-direction:column;align-items:flex-start;gap:.55rem}
+.hero-cta{margin-top:1.25rem}
+.cta-wrap .price-note{margin:0;max-width:44ch}
+{% block head %}{% endblock %}
+</style></head><body>
+<header><a class="brand" href="/">Agenda Watch</a>
+<nav>{% if user %}<a href="/watch">My watch</a><a href="/watch#history">History</a><a href="/billing" id="nav-billing">Billing</a><a href="/feedback" id="nav-feedback">Feedback</a>{% if is_admin %}<a href="/admin" id="nav-admin">Admin</a>{% endif %}
+<form method="post" action="/signout"><input type="hidden" name="csrf" value="{{ csrf }}"><button>Sign out</button></form>
+{% else %}<a href="/signin">Sign in</a>{% endif %}</nav></header>
+{% block content %}{% endblock %}
+<footer>Agenda Watch flags public agenda text and links to the source. <strong>It is not legal advice.</strong>
+It does not file comments, pull permits, or speak for any city.</footer>
+</body></html>

@@ -1,0 +1,16 @@
+# Names of Cloudflare Worker / Container secrets for local wrangler dev.
+# Copy to cloudflare/.dev.vars if you need them locally. Never commit real values.
+# In production, set each with:
+#   cd cloudflare && npx wrangler secret put NAME
+# and paste or pipe the value on stdin (never as a command-line argument).
+
+AW_INTERNAL_SECRET=
+RESEND_API_KEY=
+TURNSTILE_SECRET=
+STRIPE_SECRET_KEY=
+STRIPE_PUBLISHABLE_KEY=
+STRIPE_WEBHOOK_SECRET=
+# STRIPE_PORTAL_CONFIG_ID is legacy and ignored
+AW_OWNER_EMAIL=
+AW_ADMIN_EMAILS=
+NOTIFY_TO=

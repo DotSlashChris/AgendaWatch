@@ -1,0 +1,61 @@
+{% extends "base.html" %}{% block content %}
+<section class="hero">
+  <h1>Know when your city puts rentals on the agenda.</h1>
+  <p class="subline">Upcoming rental items only — {{ city_count }} Utah cities in the {{ area_phrase }} areas.</p>
+  <p class="lede">Agenda Watch reads public city meeting agendas and packets and emails you when an upcoming item matches your keywords or your street address. If nothing matches, you hear nothing.</p>
+  <div class="cta-wrap hero-cta">
+    {% if user %}<a class="btn" href="/watch">Go to your account</a>{% else %}<a class="btn" href="/signin">Get started free</a>
+    <p class="price-note">Your first city is free. No password and no sign-up form: enter your email and we'll send you a link.</p>{% endif %}
+  </div>
+</section>
+
+<section class="split" aria-label="Scope">
+  <div class="card">
+    <h2>What it watches</h2>
+    <ul class="tight">
+      <li>Public meeting agendas and packets for {{ city_count }} Utah cities:
+        <ul class="tight">{% for metro, mcities in metro_groups %}
+          <li>{{ metro }}: {% for c in mcities %}<strong>{{ c.name }}</strong>{% if not loop.last %}, {% endif %}{% endfor %}</li>{% endfor %}
+        </ul>
+      </li>
+      <li>Pulled from <a href="https://www.utah.gov/pmn/" rel="noopener">Utah Public Notice</a></li>
+      <li>Default keywords: {{ keywords | join(", ") }}. <em>Zoning</em> and <em>conditional use</em> match only when a rental term is in the same item — they are not alerts by themselves.</li>
+      <li>Optional: a street on each city you watch. A street match is a hit even if the keywords are weak, and only in that city's agendas.</li>
+      <li>Upcoming meetings only. Each alert gives the city, meeting date and time, the agenda item text, a short excerpt, and a link to the source PDF or notice.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h2>What it does not do</h2>
+    <ul class="tight">
+      <li>No legal advice, and no rewritten legal conclusions. You get the city's own words and a link.</li>
+      <li>Doesn't file public comments for you.</li>
+      <li>Doesn't pull or apply for permits or licenses.</li>
+      <li>Doesn't watch private HOA boards.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="card sample example" aria-label="Sample alert">
+  <div class="sample-labels">
+    <span class="tag">{{ ex.label }}</span>
+    <span class="sample-not">Not an alert. This meeting already happened.</span>
+  </div>
+  <h3>{{ ex.city }} — {{ ex.body }}</h3>
+  <ul class="sample-meta">
+    <li><strong>Meeting:</strong> {{ ex.meeting }}</li>
+    <li><strong>Agenda item:</strong> {{ ex.item }}</li>
+    <li><strong>Matched:</strong> “{{ ex.matched }}”</li>
+    <li><strong>Source:</strong> <a href="{{ ex.link }}" rel="noopener">{{ ex.link }}</a></li>
+  </ul>
+  <p class="sample-foot">This is what an alert looks like. Real alerts only cover meetings that haven't happened yet.</p>
+</section>
+
+<section class="card price-block" aria-label="Price">
+  <h2>Your first city is free.</h2>
+  <p>Watch one city and one street at no cost, with no card needed. Want more cities? Add them for $5/month each, up to 10 cities total. Cancel anytime; extra cities stay active through the month you paid for.</p>
+  <div class="cta-wrap">
+    {% if user %}<a class="btn" href="/watch">Go to your account</a>{% else %}<a class="btn" href="/signin">Start free with your email</a>
+    <p class="price-note">No password and no sign-up form. Enter your email and we'll send you a link. New here? That link creates your free account.</p>{% endif %}
+  </div>
+</section>
+{% endblock %}

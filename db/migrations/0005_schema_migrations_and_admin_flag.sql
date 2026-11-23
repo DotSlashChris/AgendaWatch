@@ -1,0 +1,5 @@
+ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0;
+CREATE TABLE IF NOT EXISTS schema_migrations(
+  id TEXT PRIMARY KEY,
+  applied_at TEXT NOT NULL
+);
