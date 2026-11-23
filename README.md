@@ -4,6 +4,8 @@ Public-agenda alerts for Utah cities. Live site: https://agendawatch.app
 
 This repository is the full application and the Cloudflare Containers deploy. It does not contain secrets, the live SQLite database, or customer data.
 
+A handoff package for a new assistant, including standing rules and a decision log, is in [`ai-context/`](ai-context/).
+
 ## Architecture
 
 Agenda Watch is a Python FastAPI app (`web/`, plus the daily fetcher in `agenda_watch.py`) that runs inside a single Cloudflare Container, fronted by a Cloudflare Worker (`cloudflare/src`).
