@@ -39,6 +39,10 @@ details summary{cursor:pointer}
   <div class="stat"><div class="n">{{ stats.extra_cities }}</div><div class="l">Paid extra cities</div></div>
   <div class="stat"><div class="n">{{ stats.alerts_30d }}</div><div class="l">Alerts sent, last 30 days</div></div>
 </div>
+<details><summary>Signups by source (?ref= code; "direct" = no code)</summary>
+<div class="scroll"><table><tr><th>Source</th><th>Accounts</th></tr>
+{% for name, n in stats.signups_by_ref %}<tr><td>{{ name }}</td><td>{{ n }}</td></tr>{% endfor %}
+</table></div></details>
 <details><summary>Users per city (city switched on)</summary>
 <div class="scroll"><table><tr><th>City</th><th>Users</th></tr>
 {% for name, n in stats.users_per_city %}<tr><td>{{ name }}</td><td>{{ n }}</td></tr>{% endfor %}

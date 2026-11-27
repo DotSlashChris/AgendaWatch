@@ -92,6 +92,36 @@ def db():
     c = sqlite3.connect(DB); c.row_factory = sqlite3.Row; return c
 
 
+REF_COOKIE = "aw_ref"
+REF_MAX_AGE = 30 * 24 * 3600
+REF_MAX_LEN = 40
+_REF_BOT = re.compile(r"bot\b|bot/|crawler|spider|slurp|facebookexternalhit|facebot|embedly|preview|whatsapp|"
+                      r"telegram|skype|discord|slack|linkedin|pinterest|headless|python-requests|curl/|wget|"
+                      r"go-http-client|okhttp|scrapy|httpclient", re.I)
+
+
+def clean_ref(value):
+    """Sanitize a ?ref= code: lowercase [a-z0-9-], at most 40 chars. None when nothing usable is left."""
+    if not isinstance(value, str):
+        return None
+    v = re.sub(r"[_\s]+", "-", value.strip().lower())
+    v = re.sub(r"[^a-z0-9-]", "", v).strip("-")[:REF_MAX_LEN].strip("-")
+    return v or None
+
+
+def ref_signup_counts(conn=None):
+    """{ref: new accounts}; accounts without a ref are counted as 'direct'. Counts only, no addresses."""
+    def run(c):
+        out = {}
+        for r in c.execute("SELECT COALESCE(NULLIF(ref, ''), 'direct') AS r, COUNT(*) AS n FROM users GROUP BY r ORDER BY n DESC, r"):
+            out[r["r"]] = r["n"]
+        return out
+    if conn is not None:
+        return run(conn)
+    with db() as c:
+        return run(c)
+
+
 def _ensure_column(conn, table, column, ddl):
     cols = {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
     if column not in cols:
@@ -271,6 +301,10 @@ def init_db():
         # Cancel at period end: still paid until Stripe ends the subscription (status canceled).
         _ensure_column(c, "users", "cancel_at", "cancel_at REAL")          # epoch secs, NULL = not canceling
         _ensure_column(c, "users", "period_end", "period_end REAL")        # current paid period ends
+        # Signup attribution (2026-11-27): the sanitized ?ref= code of the first visit, set once when a NEW
+        # account is created. Nothing else is stored (no IP, no user agent). Additive columns only.
+        _ensure_column(c, "users", "ref", "ref TEXT")
+        _ensure_column(c, "magic_nonces", "ref", "ref TEXT")
         migrate_stripe_live(c)
         if not c.execute("SELECT 1 FROM schema_migrations WHERE id='city_lock_v1'").fetchone():
             # Existing enabled cities on all accounts count as locked starting now.
@@ -477,10 +511,11 @@ def _send_via_relay(relay, subject, body):
     return True, f"sent via Cloudflare send_email ({out.get('messageId', '?')})"
 
 
-def issue_magic_link(email):
+def issue_magic_link(email, ref=None):
     nonce = secrets.token_urlsafe(16)
     with db() as c:
-        c.execute("INSERT INTO magic_nonces(nonce,email,created_at) VALUES(?,?,?)", (nonce, email, time.time()))
+        c.execute("INSERT INTO magic_nonces(nonce,email,created_at,ref) VALUES(?,?,?,?)",
+                  (nonce, email, time.time(), clean_ref(ref)))
     token = signer.dumps({"e": email, "n": nonce})
     link = f"{base_url()}/auth/verify?token={token}"
     is_owner = email == OWNER
@@ -528,7 +563,7 @@ def _signin_send_allowed(email):
     return True
 
 
-def verify_token(token):
+def verify_token(token, cookie_ref=None):
     try:
         data = signer.loads(token, max_age=LINK_TTL)
     except SignatureExpired:
@@ -542,7 +577,13 @@ def verify_token(token):
         if row["used_at"]:
             return None, "This sign-in link was already used. Request a new one."
         c.execute("UPDATE magic_nonces SET used_at=? WHERE nonce=?", (time.time(), data["n"]))
-        c.execute("INSERT OR IGNORE INTO users(email,created_at) VALUES(?,?)", (data["e"], now_iso()))
+        made = c.execute("INSERT OR IGNORE INTO users(email,created_at) VALUES(?,?)", (data["e"], now_iso()))
+        if made.rowcount == 1:
+            # NEW account only: remember where it came from (the ref saved when the link was requested,
+            # else the cookie on this browser). An existing user's ref is never touched.
+            first = clean_ref(row["ref"]) or clean_ref(cookie_ref)
+            if first:
+                c.execute("UPDATE users SET ref=? WHERE email=? AND ref IS NULL", (first, data["e"]))
         # Brand-new watch: default keywords, NO city pre-selected (the user picks on My watch).
         c.execute(
             "INSERT OR IGNORE INTO watches(email,keywords,alerts_on,updated_at) VALUES(?,?,0,?)",
@@ -571,6 +612,31 @@ async def _snapshot_after_webhook(request: Request, call_next):
             (ROOT / "state" / ".persist-now").touch()
         except OSError:
             pass
+    return resp
+
+
+REF_PAGES = ("/", "/signin")
+
+
+@app.middleware("http")
+async def _ref_cookie(request: Request, call_next):
+    """First-touch attribution cookie for public pages loaded with ?ref=<code>. In production the Worker
+    sets it for the cached public pages; this covers pages the app serves itself. SameSite=Lax, 30 days,
+    only the code is stored, and an existing cookie is never replaced."""
+    resp = await call_next(request)
+    try:
+        path = request.url.path
+        if (request.method in ("GET", "HEAD") and resp.status_code < 400
+                and (path in REF_PAGES or path.startswith("/cities/"))
+                and not clean_ref(request.cookies.get(REF_COOKIE))
+                and not _REF_BOT.search(request.headers.get("user-agent") or "")):
+            code = clean_ref(request.query_params.get("ref"))
+            if code:
+                secure = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
+                resp.set_cookie(REF_COOKIE, code, max_age=REF_MAX_AGE, path="/", samesite="lax",
+                                httponly=True, secure=secure)
+    except Exception:  # noqa: BLE001 - attribution must never break a page
+        log.exception("ref cookie failed")
     return resp
 
 
@@ -653,14 +719,14 @@ def signin_post(request: Request, email: str = Form(...), csrf: str = Form("")):
     email = email.strip().lower()
     if not EMAIL_RE.match(email):
         return T.TemplateResponse(request, "signin.html", ctx(request, error="Enter a valid email."), status_code=400)
-    _, status = issue_magic_link(email)
+    _, status = issue_magic_link(email, ref=request.cookies.get(REF_COOKIE))
     return T.TemplateResponse(request, "check_email.html", ctx(request, email=email, is_owner=(email == OWNER),
                                                               status=status, provider=email_provider()))
 
 
 @app.get("/auth/verify")
 def verify(request: Request, token: str = ""):
-    email, err = verify_token(token)
+    email, err = verify_token(token, cookie_ref=request.cookies.get(REF_COOKIE))
     if err:
         return T.TemplateResponse(request, "signin.html", ctx(request, error=err), status_code=400)
     request.session.clear()
@@ -1881,6 +1947,7 @@ def admin_stats():
         "extra_cities": sum(extras),
         "users_per_city": [(CITY_NAME[k], per_city[k]) for k in CITY_KEYS],
         "alerts_30d": alerts30,
+        "signups_by_ref": list(ref_signup_counts().items()),
     }
 
 
@@ -2062,7 +2129,8 @@ def internal_status(request: Request):
     with db() as c:
         g = {"settings": aw_guard.get_all(c), "usage_today": aw_guard.usage(c), "trips_today": aw_guard.trips(c),
              "lock": aw_guard.lock_info(c)}
-    return JSONResponse({"last_email": dict(LAST_EMAIL) or None, "email_provider": email_provider(),
+        refs = ref_signup_counts(c)
+    return JSONResponse({"ref_signups": refs, "last_email": dict(LAST_EMAIL) or None, "email_provider": email_provider(),
                          "last_alerts": last_alerts, "cost_guard": g,
                          "alerts_off_cities": sorted(aw_alerts.off_cities(CFG)),
                          "fetch_enabled": bool(g["settings"]["fetch_enabled"]),
@@ -2280,6 +2348,7 @@ def _watch_list_account(email):
     return {
         "email": email,
         "created_at": u.get("created_at"),
+        "ref": u.get("ref") or "direct",
         "alerts_on": bool(w["alerts_on"]) if w else False,
         "is_admin": is_admin(email),
         "subscription_status": u.get("subscription_status"),
@@ -2305,7 +2374,9 @@ def internal_watch_list(request: Request, email: str = ""):
         return JSONResponse({"accounts": [item]})
     with db() as c:
         emails = [r["email"] for r in c.execute("SELECT email FROM users ORDER BY created_at, email")]
-    return JSONResponse({"accounts": [_watch_list_account(e) for e in emails]})
+        refs = ref_signup_counts(c)
+    # ref_signups: new accounts per ?ref= code ('direct' = no code). Counts only; no addresses.
+    return JSONResponse({"accounts": [_watch_list_account(e) for e in emails], "ref_signups": refs})
 
 
 @app.get("/internal/resend-lookup")

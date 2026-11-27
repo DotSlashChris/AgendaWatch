@@ -105,6 +105,24 @@ export class AgendaWatchContainer extends Container<Env> {
     this.kvSet("guard_config", JSON.stringify(cur));
     return cur;
   }
+  /** Signup attribution: +1 first-touch landing for a ?ref= code (per-day counter in `usage`, kept 40 days).
+   *  Stores only the code and a count. At most 100 distinct codes, so junk codes cannot grow the table. */
+  async refLanding(code: string): Promise<boolean> {
+    if (!/^[a-z0-9-]{1,40}$/.test(code)) return false;
+    const k = `ref:${code}`;
+    const sql = this.ctx.storage.sql;
+    const known = sql.exec<{ n: number }>("SELECT COUNT(*) AS n FROM usage WHERE k = ?", k).one().n > 0;
+    if (!known && sql.exec<{ n: number }>("SELECT COUNT(DISTINCT k) AS n FROM usage WHERE k LIKE 'ref:%'").one().n >= 100) return false;
+    this.bump(k);
+    return true;
+  }
+  /** {code: landings} over the retained window (about 40 days). */
+  async refLandings(): Promise<Record<string, number>> {
+    const out: Record<string, number> = {};
+    for (const r of this.ctx.storage.sql.exec<{ k: string; n: number }>(
+      "SELECT k, SUM(n) AS n FROM usage WHERE k LIKE 'ref:%' GROUP BY k ORDER BY n DESC, k").toArray()) out[r.k.slice(4)] = r.n;
+    return out;
+  }
   /** First time today for `key` -> true (caller sends the one owner notice). */
   async tripOnce(key: string): Promise<boolean> {
     const k = `trip:${denverDay()}:${key}`;
@@ -310,7 +328,8 @@ async function internal(req: Request, env: Env, url: URL, ctx: ExecutionContext)
     const { guard, status } = await reconcile(env, today);
     const st = liveStripeEnv(env);
     const worker_guard: any = await stub.guardView();
-    return Response.json({ ...status, today, guard, worker_guard, fetch_enabled: !!(worker_guard.config as any).fetch_enabled, stripe_keys: { ok: st.ok, reason: st.reason, kinds: stripeKeyKinds(env) }, email_provider: (env.RESEND_API_KEY ?? "").trim() ? "resend" : "cloudflare" });
+    const ref_landings = await stub.refLandings(); // first-touch landings per ?ref= code, last ~40 days (counts only)
+    return Response.json({ ...status, ref_landings, ref_landings_window_days: 40, today, guard, worker_guard, fetch_enabled: !!(worker_guard.config as any).fetch_enabled, stripe_keys: { ok: st.ok, reason: st.reason, kinds: stripeKeyKinds(env) }, email_provider: (env.RESEND_API_KEY ?? "").trim() ? "resend" : "cloudflare" });
   }
   if (url.pathname === "/__aw/email-check" && req.method === "GET") {
     return getContainer(env.AW_CONTAINER, INSTANCE).fetch(new Request("http://container/internal/email-check", {
@@ -506,6 +525,7 @@ export default {
       citySlugs: CITY_SLUGS,
       getPage: (path) => stub.getPage(version, path),
       putPage: (path, html) => stub.putPage(version, path, html),
+      countLanding: (code) => stub.refLanding(code),
       rateLimit: env.AW_RL ? async (ip) => (await env.AW_RL!.limit({ key: ip })).success : undefined,
       onWakeCap: async () => {
         if (await stub.tripOnce("cap_container_wakes")) ctx.waitUntil(ownerNotice(env, "container wakes",

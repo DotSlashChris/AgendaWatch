@@ -94,6 +94,46 @@ export function sitemapXml(slugs: readonly string[], site = "https://agendawatch
 /** Home-only sitemap (no catalog passed). */
 export const SITEMAP = sitemapXml([]);
 
+// ---- Signup attribution (2026-11-27): ?ref=<code> on a public page -> first-touch cookie ----
+export const REF_COOKIE = "aw_ref";
+export const REF_MAX_AGE = 30 * 24 * 3600;
+export const REF_MAX_LEN = 40;
+/** Lowercase [a-z0-9-], at most 40 chars; null when nothing usable is left. Mirrors clean_ref() in web/app.py. */
+export function cleanRef(v: string | null | undefined): string | null {
+  if (typeof v !== "string") return null;
+  const c = v.trim().toLowerCase().replace(/[_\s]+/g, "-").replace(/[^a-z0-9-]/g, "")
+    .replace(/^-+|-+$/g, "").slice(0, REF_MAX_LEN).replace(/-+$/g, "");
+  return c || null;
+}
+export function refFromCookie(cookieHeader: string | null): string | null {
+  const m = cookieHeader ? /(?:^|;\s*)aw_ref=([^;]+)/.exec(cookieHeader) : null;
+  return m ? cleanRef(m[1]) : null;
+}
+export function refCookie(code: string): string {
+  return `${REF_COOKIE}=${code}; Max-Age=${REF_MAX_AGE}; Path=/; SameSite=Lax; Secure; HttpOnly`;
+}
+const REF_PATHS = (p: string) => p === "/" || p === "/signin" || p.startsWith("/cities/");
+
+/** Add the first-touch cookie to a successful public GET/HEAD that carried ?ref=. Never for bots or for a
+ *  visitor who already has the cookie (first touch wins). Counts one landing per first touch (a bare
+ *  per-code counter in the Durable Object: no IP, no user agent, nothing about the visitor). */
+async function withRef(req: Request, res: Response, deps: Deps): Promise<Response> {
+  const m = req.method.toUpperCase();
+  if (m !== "GET" && m !== "HEAD") return res;
+  const url = new URL(req.url);
+  if (!REF_PATHS(url.pathname) || res.status >= 400) return res;
+  const code = cleanRef(url.searchParams.get("ref"));
+  if (!code || isBot(req.headers.get("user-agent")) || refFromCookie(req.headers.get("cookie"))) return res;
+  const out = new Response(res.body, res);
+  if (!/(?:^|,\s*)aw_ref=/.test(res.headers.get("set-cookie") ?? "")) out.headers.append("set-cookie", refCookie(code));
+  out.headers.set("cache-control", "private, no-store");
+  if (deps.countLanding) {
+    const job = deps.countLanding(code).catch(() => undefined);
+    if (deps.waitUntil) deps.waitUntil(job);
+  }
+  return out;
+}
+
 export interface Gate { seeded: boolean; running: boolean; wakes: number; wakeCap: number }
 export interface HomeCopy { html: string; at: number }
 export interface Deps {
@@ -105,6 +145,7 @@ export interface Deps {
   citySlugs?: readonly string[];                            // catalog city slugs -> /cities/<slug> + sitemap
   getPage?(path: string): Promise<HomeCopy | null>;         // DO RPC: stored anonymous copy of a public page
   putPage?(path: string, html: string): Promise<void>;      // DO RPC
+  countLanding?(code: string): Promise<unknown>;            // DO RPC: +1 first-touch landing for this ref code
   onWakeCap?(): Promise<void>;                              // owner notice (once per day, deduped by the caller)
   waitUntil?(p: Promise<unknown>): void;
   now?(): number;
@@ -179,6 +220,10 @@ async function publicPage(req: Request, path: string, method: string, deps: Deps
 }
 
 export async function handlePublic(req: Request, deps: Deps): Promise<Response> {
+  return withRef(req, await handlePublicInner(req, deps), deps);
+}
+
+async function handlePublicInner(req: Request, deps: Deps): Promise<Response> {
   const url = new URL(req.url);
   const path = url.pathname, method = req.method.toUpperCase();
   const slugs = deps.citySlugs ?? [];

@@ -1,7 +1,7 @@
 # Agenda Watch — Cloudflare Containers image. Build context = repo root (see wrangler.jsonc image_build_context).
 FROM python:3.12-slim
 LABEL aw.build="20261027-minutes-labeled"
-ENV AW_BUILD=20261121-fetch-errors
+ENV AW_BUILD=20261127-ref-attribution
 RUN rm -rf /var/lib/apt/lists/* && apt-get -o Acquire::EnableSrvRecords=false update && apt-get -o Acquire::EnableSrvRecords=false install -y --no-install-recommends poppler-utils ca-certificates tzdata \
     && rm -rf /var/lib/apt/lists/*
 ENV PYTHONUNBUFFERED=1 TZ=America/Denver AW_CLOUD=1

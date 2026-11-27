@@ -174,3 +174,81 @@ test("robots.txt and sitemap.xml are static, served to crawlers, never touch the
   assert.deepEqual(f.seen, []);
   assert.equal(f.gates(), 0);
 });
+
+// ---- signup attribution: ?ref= first-touch cookie (2026-11-27)
+import { cleanRef, refFromCookie, refCookie } from "../src/edge.ts";
+
+test("cleanRef: lowercase [a-z0-9-], 40 chars max, junk -> null", () => {
+  assert.equal(cleanRef("IG-CH-1126"), "ig-ch-1126");
+  assert.equal(cleanRef(" Rd_Provo 1126 "), "rd-provo-1126");
+  assert.equal(cleanRef("<script>x</script>"), "scriptxscript");
+  assert.equal(cleanRef("!!!"), null);
+  assert.equal(cleanRef(null), null);
+  assert.equal(cleanRef("a".repeat(100))!.length, 40);
+  assert.equal(cleanRef("a".repeat(39) + "-b"), "a".repeat(39));
+  assert.equal(refFromCookie("x=1; aw_ref=fb-provo-1126; y=2"), "fb-provo-1126");
+  assert.equal(refFromCookie("aw_session=abc"), null);
+  assert.match(refCookie("ig-ch-1126"), /^aw_ref=ig-ch-1126; Max-Age=2592000; Path=\/; SameSite=Lax; Secure; HttpOnly$/);
+});
+
+test("?ref= on the stored home page: sets the 30-day first-touch cookie, counts one landing, no container wake", async () => {
+  const f = fake();
+  const landings: string[] = [];
+  f.deps.countLanding = async (c) => { landings.push(c); };
+  const r = await handlePublic(req("GET", "/?ref=IG-CH-1126"), f.deps);
+  assert.equal(r.status, 200);
+  assert.equal(r.headers.get("x-aw-edge"), "home");
+  const sc = r.headers.get("set-cookie") ?? "";
+  assert.match(sc, /^aw_ref=ig-ch-1126; Max-Age=2592000; Path=\/; SameSite=Lax; Secure; HttpOnly$/);
+  assert.equal(r.headers.get("cache-control"), "private, no-store");
+  assert.deepEqual(landings, ["ig-ch-1126"]);
+  assert.deepEqual(f.seen, []);
+  assert.ok((await r.text()).includes("Get started free"));
+});
+
+test("?ref= on city pages and /signin; plain loads, junk codes and errors get no cookie", async () => {
+  const landings: string[] = [];
+  const page = { html: "<!doctype html><html><title>t</title><body>CH</body></html>", at: Date.now() };
+  const f = fake();
+  f.deps.citySlugs = ["cottonwood-heights"];
+  f.deps.getPage = async () => page;
+  f.deps.countLanding = async (c) => { landings.push(c); };
+  const a = await handlePublic(req("GET", "/cities/cottonwood-heights?ref=fb-ch-1126"), f.deps);
+  assert.match(a.headers.get("set-cookie") ?? "", /^aw_ref=fb-ch-1126;/);
+  const b = await handlePublic(req("GET", "/signin?ref=nd-ch-1126"), f.deps);   // forwarded; container response has its own session cookie
+  assert.match(b.headers.get("set-cookie") ?? "", /aw_ref=nd-ch-1126;/);
+  const c = await handlePublic(req("GET", "/cities/cottonwood-heights/?ref=x-1"), f.deps); // 301 keeps the query string
+  assert.equal(c.status, 301); assert.equal(c.headers.get("location"), "/cities/cottonwood-heights?ref=x-1");
+  assert.match(c.headers.get("set-cookie") ?? "", /^aw_ref=x-1;/);   // the redirect is the first touch; the follow-up carries the cookie
+  for (const p of ["/", "/?ref=%21%21", "/?ref="]) assert.equal((await handlePublic(req("GET", p), f.deps)).headers.get("set-cookie"), null, p);
+  const miss = await handlePublic(req("GET", "/nope?ref=x"), f.deps);
+  assert.equal(miss.status, 404); assert.equal(miss.headers.get("set-cookie"), null);
+  const post = await handlePublic(req("POST", "/signin?ref=x", { "content-type": "application/x-www-form-urlencoded" }, "email=a%40b.c"), f.deps);
+  assert.ok(!(post.headers.get("set-cookie") ?? "").includes("aw_ref"));
+  assert.deepEqual(landings, ["fb-ch-1126", "nd-ch-1126", "x-1"]);
+});
+
+test("?ref= is first-touch only: an existing aw_ref cookie keeps its code and adds no landing; bots get nothing", async () => {
+  const f = fake();
+  const landings: string[] = [];
+  f.deps.countLanding = async (c) => { landings.push(c); };
+  const again = await handlePublic(req("GET", "/?ref=x-provo-1126", { cookie: "aw_ref=fb-provo-1126" }), f.deps);
+  assert.equal(again.headers.get("set-cookie"), null);
+  const bot = await handlePublic(req("GET", "/?ref=x-provo-1126", { "user-agent": "facebookexternalhit/1.1" }), f.deps);
+  assert.equal(bot.status, 200); assert.equal(bot.headers.get("set-cookie"), null);
+  const head = await handlePublic(req("HEAD", "/?ref=x-provo-1126"), f.deps);
+  assert.match(head.headers.get("set-cookie") ?? "", /aw_ref=x-provo-1126/);
+  assert.deepEqual(landings, ["x-provo-1126"]);   // only the HEAD above counted; neither the cookie holder nor the bot did
+  assert.deepEqual(f.seen, []);
+});
+
+test("a container response that already sets aw_ref is not given a second one", async () => {
+  const f = fake();
+  f.deps.forward = async () => {
+    const h = new Headers({ "content-type": "text/html" });
+    h.append("set-cookie", "aw_ref=ig-ch-1126; Path=/; SameSite=lax");
+    return new Response("<html></html>", { status: 200, headers: h });
+  };
+  const r = await handlePublic(req("GET", "/signin?ref=ig-ch-1126"), f.deps);
+  assert.equal((r.headers.get("set-cookie") ?? "").match(/aw_ref=/g)!.length, 1);
+});

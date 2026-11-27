@@ -23,7 +23,8 @@ CREATE TABLE IF NOT EXISTS users(
   test_subscription_status TEXT,
   test_extra_cities INTEGER,
   cancel_at REAL,
-  period_end REAL
+  period_end REAL,
+  ref TEXT
 );
 
 CREATE TABLE IF NOT EXISTS watches(
@@ -49,7 +50,8 @@ CREATE TABLE IF NOT EXISTS magic_nonces(
   nonce TEXT PRIMARY KEY,
   email TEXT NOT NULL,
   created_at REAL NOT NULL,
-  used_at REAL
+  used_at REAL,
+  ref TEXT
 );
 
 CREATE TABLE IF NOT EXISTS alerts_sent(
